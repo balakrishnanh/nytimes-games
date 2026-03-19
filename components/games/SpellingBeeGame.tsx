@@ -31,41 +31,48 @@ export default function SpellingBeeGame({ config, gameId }: SpellingBeeProps) {
   const [showModal, setShowModal] = useState(false)
   
   // GameContext for timer and user
-  const { seconds, setGameStatus, user } = useGame()
+  const { seconds, setSeconds, setGameStatus, gameStatus, user } = useGame()
 
   // Create a ref for mapping the letters
   const validLettersSet = new Set(config.letters)
   const validWordsSet = new Set(config.validWords.map(w => w.toUpperCase()))
 
   const supabase = createClient()
+  const [isRestored, setIsRestored] = useState(false)
 
-  // Load progress if user is logged in
+  // Load progress
   useEffect(() => {
-    const loadState = async () => {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) return
-        
-        // Use score_syncs or a simple play_state table. Since this app uses GameResultModal typically
-        // we might not have a dedicated progress row per game natively if it's not implemented.
-        // We'll use localStorage as fallback for demo / guest mode, which is common.
-        const cached = localStorage.getItem(`spellingbee_${gameId}`)
-        if (cached) {
-            try {
-                const parsed = JSON.parse(cached)
-                setFoundWords(parsed.foundWords || [])
-                setScore(parsed.score || 0)
-            } catch (e) {
-                console.error(e)
+    const cached = sessionStorage.getItem(`nyt_spellingbee_${gameId}`)
+    if (cached) {
+        try {
+            const parsed = JSON.parse(cached)
+            setFoundWords(parsed.foundWords || [])
+            setScore(parsed.score || 0)
+            if (parsed.seconds) setSeconds(parsed.seconds)
+            if (parsed.gameStatus) setGameStatus(parsed.gameStatus)
+            
+            if (parsed.gameStatus && parsed.gameStatus !== 'playing') {
+                setTimeout(() => setShowModal(true), 800)
             }
+        } catch (e) {
+            console.error(e)
         }
     }
-    loadState()
-  }, [gameId, supabase])
+    setIsRestored(true)
+  }, [gameId, setSeconds, setGameStatus])
 
   // Save progress
   useEffect(() => {
-     localStorage.setItem(`spellingbee_${gameId}`, JSON.stringify({ foundWords, score }))
-  }, [foundWords, score, gameId])
+     if (!isRestored) return
+     if (foundWords.length > 0 || gameStatus !== 'playing') {
+         sessionStorage.setItem(`nyt_spellingbee_${gameId}`, JSON.stringify({ 
+             foundWords, 
+             score,
+             seconds,
+             gameStatus
+         }))
+     }
+  }, [foundWords, score, seconds, gameStatus, gameId, isRestored])
 
   const showPopup = (msg: string) => {
       setMessage(msg)

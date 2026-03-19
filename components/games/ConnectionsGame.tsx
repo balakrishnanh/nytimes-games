@@ -15,25 +15,71 @@ const DIFFICULTY_ORDER = ['yellow', 'green', 'blue', 'purple']
 
 export default function ConnectionsGame({ config, gameId }: { config: any, gameId: string }) {
   // 1. Use Global Context instead of local state for status/timer
-  const { gameStatus, setGameStatus, seconds, user } = useGame()
+  const { gameStatus, setGameStatus, seconds, setSeconds, user } = useGame()
   
   const [words, setWords] = useState<WordItem[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [solvedGroups, setSolvedGroups] = useState<Group[]>([])
   const [lives, setLives] = useState(4)
   const [showModal, setShowModal] = useState(false)
+  const [isRestored, setIsRestored] = useState(false)
   
   // Local state just for the reveal animation, independent of game over status
   const [isRevealing, setIsRevealing] = useState(false)
   
   const supabase = createClient()
 
+  // --- State Persistence ---
   useEffect(() => {
-    const allWords = config.groups.flatMap((g: any) => 
-      g.words.map((w: string) => ({ text: w, groupColor: g.color }))
-    )
-    setWords(allWords.sort(() => Math.random() - 0.5))
-  }, [config])
+    const savedState = sessionStorage.getItem(`nyt_connections_${gameId}`)
+    if (savedState) {
+        try {
+            const parsed = JSON.parse(savedState)
+            // Verify it's the same game by checking config equality or just ID
+            if (parsed.configHash === JSON.stringify(config)) {
+               if (parsed.words) setWords(parsed.words)
+               if (parsed.selected) setSelected(parsed.selected)
+               if (parsed.solvedGroups) setSolvedGroups(parsed.solvedGroups)
+               if (parsed.lives !== undefined) setLives(parsed.lives)
+               if (parsed.seconds) setSeconds(parsed.seconds)
+               if (parsed.gameStatus) setGameStatus(parsed.gameStatus)
+               
+               if (parsed.gameStatus && parsed.gameStatus !== 'playing') {
+                   setTimeout(() => setShowModal(true), 800)
+               }
+            } else {
+               // Initial load if no/mismatch save
+               const allWords = config.groups.flatMap((g: any) => 
+                 g.words.map((w: string) => ({ text: w, groupColor: g.color }))
+               )
+               setWords(allWords.sort(() => Math.random() - 0.5))
+            }
+        } catch(e) {
+            console.error(e)
+        }
+    } else {
+         const allWords = config.groups.flatMap((g: any) => 
+           g.words.map((w: string) => ({ text: w, groupColor: g.color }))
+         )
+         setWords(allWords.sort(() => Math.random() - 0.5))
+    }
+    setIsRestored(true)
+  }, [gameId, config, setSeconds, setGameStatus])
+
+  useEffect(() => {
+     if (!isRestored) return
+     if (solvedGroups.length > 0 || selected.length > 0 || lives < 4 || gameStatus !== 'playing') {
+         sessionStorage.setItem(`nyt_connections_${gameId}`, JSON.stringify({
+            words,
+            selected,
+            solvedGroups,
+            lives,
+            seconds,
+            gameStatus,
+            configHash: JSON.stringify(config)
+         }))
+     }
+  }, [words, selected, solvedGroups, lives, seconds, gameStatus, gameId, config, isRestored])
 
     // 2. Leaderboard Save Logic
     const saveGameScore = useCallback(async () => {

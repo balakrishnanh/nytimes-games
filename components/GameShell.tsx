@@ -4,7 +4,6 @@ import { ArrowLeft, Pause, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { GameProvider, useGame } from '../context/GameContext'
-import { ScoreSyncer } from '@/components/ScoreSyncer'
 import { LeaderboardButton } from '@/components/LeaderboardButton'
 import { ShareButton } from '@/components/ShareButton'
 
@@ -28,8 +27,6 @@ function GameShellContent({ title, gameType, gameId, children }: GameShellProps)
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Silently saves any pending guest score once user is logged in */}
-      <ScoreSyncer />
       {/* Header */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center relative z-20">
         <Link href={backLink}>

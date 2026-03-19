@@ -10,7 +10,7 @@ import { getGridNumbers, getClueNumber, GridCell, GRID_SIZE } from '@/utils/cros
 import { saveScore } from '@/utils/saveScore'
 
 export default function MiniCrosswordGame({ config, gameId }: { config: any, gameId: string }) {
-  const { gameStatus, setGameStatus, seconds, user } = useGame()
+  const { gameStatus, setGameStatus, seconds, setSeconds, user } = useGame()
   
   const [userGrid, setUserGrid] = useState<GridCell[][]>(
     config.grid.map((row: any[]) => row.map(cell => cell === null ? null : ''))
@@ -26,8 +26,46 @@ export default function MiniCrosswordGame({ config, gameId }: { config: any, gam
   const [activeCell, setActiveCell] = useState<{r: number, c: number}>({r: 0, c: 0})
   const [direction, setDirection] = useState<'across' | 'down'>('across')
   const [showModal, setShowModal] = useState(false)
+  const [isRestored, setIsRestored] = useState(false)
   
   const supabase = createClient()
+  
+  // --- State Persistence ---
+  useEffect(() => {
+    const savedState = sessionStorage.getItem(`nyt_minicrossword_${gameId}`)
+    if (savedState) {
+        try {
+            const parsed = JSON.parse(savedState)
+            if (parsed.userGrid && parsed.userGrid.length === GRID_SIZE) {
+               setUserGrid(parsed.userGrid)
+               if (parsed.lockedCells) setLockedCells(parsed.lockedCells)
+               if (parsed.wrongCells) setWrongCells(parsed.wrongCells)
+               if (parsed.seconds) setSeconds(parsed.seconds)
+               if (parsed.gameStatus) setGameStatus(parsed.gameStatus)
+               
+               if (parsed.gameStatus && parsed.gameStatus !== 'playing') {
+                   setTimeout(() => setShowModal(true), 800)
+               }
+            }
+        } catch(e) { console.error(e) }
+    }
+    setIsRestored(true)
+  }, [gameId, setSeconds, setGameStatus])
+
+  useEffect(() => {
+     if (!isRestored) return
+     // Save if any cell is filled or status isn't playing
+     const hasFilled = userGrid.some(row => row.some(cell => cell !== '' && cell !== null))
+     if (hasFilled || gameStatus !== 'playing') {
+         sessionStorage.setItem(`nyt_minicrossword_${gameId}`, JSON.stringify({
+            userGrid,
+            lockedCells,
+            wrongCells,
+            seconds,
+            gameStatus
+         }))
+     }
+  }, [userGrid, lockedCells, wrongCells, seconds, gameStatus, gameId, isRestored])
   
   const inputRefs = useRef<(HTMLInputElement | null)[][]>(
     Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null))

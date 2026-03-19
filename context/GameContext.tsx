@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 
 interface GameContextType {
   seconds: number
+  setSeconds: (val: number | ((s: number) => number)) => void
   isPaused: boolean
   setIsPaused: (val: boolean) => void
   gameStatus: 'playing' | 'won' | 'lost'
@@ -36,7 +37,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <GameContext.Provider value={{ seconds, isPaused, setIsPaused, gameStatus, setGameStatus, user }}>
+    <GameContext.Provider value={{ seconds, setSeconds, isPaused, setIsPaused, gameStatus, setGameStatus, user }}>
       {children}
     </GameContext.Provider>
   )

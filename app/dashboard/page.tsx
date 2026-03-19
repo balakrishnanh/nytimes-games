@@ -27,6 +27,17 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   if (!user) redirect('/login')
 
+  // Check if profile exists and has a username
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.username || profile.username.trim() === '') {
+    redirect('/set-nickname')
+  }
+
   // --- My Games ---
   const { data: games } = await supabase
     .from('games')

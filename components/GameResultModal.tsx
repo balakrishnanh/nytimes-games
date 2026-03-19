@@ -12,6 +12,7 @@ import Link from "next/link"
 import { Trophy, Frown, Loader2, Clock } from "lucide-react"
 import { createClient } from '@/utils/supabase/client'
 import { ShareButton } from '@/components/ShareButton'
+import { saveScore } from '@/utils/saveScore'
 
 interface GameResultModalProps {
   isOpen: boolean
@@ -45,36 +46,46 @@ export function GameResultModal({ isOpen, onClose, isWin, answer, gameType, game
 
   useEffect(() => {
     if (isOpen) {
-      setLoading(true)
-      
-      // 1. Check Auth
-      supabase.auth.getUser().then(({ data }) => {
-          setUser(data.user)
-          console.log("Modal User Check:", data.user ? "Logged In" : "Guest")
-      })
+      const updateAndFetch = async () => {
+        setLoading(true)
+        
+        // 1. Check Auth & Sync Pending Score
+        const { data: { user: currentUser } } = await supabase.auth.getUser()
+        setUser(currentUser)
+        console.log("Modal User Check:", currentUser ? "Logged In" : "Guest")
 
-      // 2. Check Guest Score from LocalStorage
-      const pending = localStorage.getItem('pending_score')
-      if (pending) {
-        try {
-            const parsed = JSON.parse(pending)
-            console.log("Found Pending Score:", parsed)
-            
-            // Check if it matches THIS game
-            if (parsed.gameId === gameId) {
-                setGuestScore(parsed.score)
-            } else {
-                console.log("Pending score ID mismatch:", parsed.gameId, "vs", gameId)
-            }
-        } catch (e) {
-            console.error("Error parsing pending score", e)
+        // 2. Check Guest Score from LocalStorage
+        const pending = localStorage.getItem('pending_score')
+        let currentGuestScore = null
+
+        if (pending) {
+          try {
+              const parsed = JSON.parse(pending)
+              console.log("Found Pending Score:", parsed)
+              
+              if (parsed.gameId === gameId) {
+                  currentGuestScore = parsed.score
+                  
+                  // if logged in, sync it now!
+                  if (currentUser) {
+                      console.log("Syncing pending score for logged in user...")
+                      await saveScore(supabase, {
+                          gameId,
+                          userId: currentUser.id,
+                          scoreSeconds: parsed.score
+                      })
+                      localStorage.removeItem('pending_score')
+                      currentGuestScore = null // No longer a guest score
+                  }
+              }
+          } catch (e) {
+              console.error("Error parsing/syncing pending score", e)
+          }
         }
-      } else {
-          console.log("No pending score found in localStorage")
-      }
+        
+        setGuestScore(currentGuestScore)
 
-      // 3. Fetch Leaderboard
-      const fetchLeaderboard = async () => {
+        // 3. Fetch Leaderboard
         const { data } = await supabase
           .from('leaderboard')
           .select('score_seconds, profiles(username)')
@@ -86,7 +97,8 @@ export function GameResultModal({ isOpen, onClose, isWin, answer, gameType, game
         if (data) setScores(data)
         setLoading(false)
       }
-      fetchLeaderboard()
+
+      updateAndFetch()
     }
   }, [isOpen, gameId, supabase])
 

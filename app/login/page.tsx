@@ -1,149 +1,37 @@
 'use client'
 import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 function LoginPageInner() {
-  // Mode Toggle
-  const [view, setView] = useState<'login' | 'signup' | 'forgot-password'>('login')
-  
-  // Form Fields
-  const [identifier, setIdentifier] = useState('') // Used for Login (Email OR Username)
-  const [email, setEmail] = useState('')           // Used for Signup
-  const [username, setUsername] = useState('')     // Used for Signup
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  
   const [isLoading, setIsLoading] = useState(false)
-  const [signupSuccess, setSignupSuccess] = useState(false)
-  
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') || '/dashboard'
+  const redirect = searchParams.get('redirect')
   const supabase = createClient()
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleGoogleLogin = async () => {
     setIsLoading(true)
-
-    let loginEmail = identifier.trim()
-
-    // 1. Check if input is a Username (no '@' symbol)
-    if (!loginEmail.includes('@')) {
-      // Look up the email associated with this username
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('email')
-        .ilike('username', loginEmail) // Case-insensitive lookup
-        .single()
-
-      if (error || !data?.email) {
-        setIsLoading(false)
-        return toast.error('Username not found')
-      }
-      loginEmail = data.email
-    }
-
-    // 2. Perform Login with the resolved email
-    const { error } = await supabase.auth.signInWithPassword({ 
-      email: loginEmail, 
-      password 
-    })
-
-    if (error) {
-      toast.error('Invalid credentials')
-    } else {
-      toast.success('Logged in successfully')
-      router.push(redirectTo)
-      router.refresh()
-    }
-    setIsLoading(false)
-  }
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (password !== confirmPassword) {
-      return toast.error('Passwords do not match')
-    }
-
-    setIsLoading(true)
-
-    // 1. Validate Username Uniqueness manually first
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('username')
-      .ilike('username', username.trim())
-      .single()
-
-    if (existingUser) {
-      setIsLoading(false)
-      return toast.error('Username is already taken')
-    }
-
-    // 2. Sign Up
-    const { error } = await supabase.auth.signUp({ 
-        email, 
-        password,
-        options: {
-            // This data is passed to the SQL Trigger we created
-            data: { username: username.trim() },
-            emailRedirectTo: 'https://nytimes-games.vercel.app/'
-        }
-    })
     
-    setIsLoading(false)
-
-    if (error) {
-        toast.error(error.message)
-    } else {
-        setSignupSuccess(true)
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`)
+    if (redirect) {
+      callbackUrl.searchParams.set('next', redirect)
     }
-  }
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    // Assume user entered their email into the identifier field
-    const targetEmail = identifier.trim() || email.trim()
-    if (!targetEmail) {
-      return toast.error('Please enter your email')
-    }
-    setIsLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-      redirectTo: 'https://nytimes-games.vercel.app/reset-password',
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: callbackUrl.toString(),
+      },
     })
-    setIsLoading(false)
+
     if (error) {
       toast.error(error.message)
-    } else {
-        toast.success('Reset link sent to your email')
-        setView('login')
+      setIsLoading(false)
     }
-  }
-
-  // View: Success Screen
-  if (signupSuccess) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <div className="w-full max-w-sm p-8 bg-white rounded-xl shadow-lg border border-gray-100 text-center space-y-6 animate-in fade-in zoom-in-95">
-          <div className="mx-auto w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-            <CheckCircle2 className="w-8 h-8" />
-          </div>
-          <div className="space-y-2">
-            <h2 className="text-2xl font-serif font-bold text-gray-900">Check your email</h2>
-            <p className="text-gray-500 text-sm">We sent a confirmation link to <span className="font-semibold">{email}</span>.</p>
-          </div>
-          <Button variant="outline" className="w-full" onClick={() => { setSignupSuccess(false); setView('login') }}>
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Login
-          </Button>
-        </div>
-      </div>
-    )
+    // No need to set isLoading(false) on success since we are navigating away
   }
 
   return (
@@ -154,147 +42,28 @@ function LoginPageInner() {
         <div className="p-8 pb-6 text-center">
             <h1 className="text-3xl font-serif font-bold text-black">NYT Maker</h1>
             <p className="text-gray-500 text-sm mt-2">
-                {view === 'login' ? 'Welcome back, creator.' : view === 'signup' ? 'Join to start building games.' : 'Reset your password.'}
+                Sign in to create and share your games.
             </p>
         </div>
 
-        {/* TABS */}
-        <div className="flex border-b">
-            <button 
-                onClick={() => setView('login')}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${view === 'login' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-                Log In
-            </button>
-            <button 
-                onClick={() => setView('signup')}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${view === 'signup' ? 'border-b-2 border-black text-black' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-                Sign Up
-            </button>
-        </div>
-
         {/* FORMS */}
-        <div className="p-8 pt-6">
-            {view === 'login' ? (
-                /* LOGIN FORM */
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Email or Username</Label>
-                        <Input 
-                            placeholder="Enter username or email" 
-                            value={identifier}
-                            onChange={e => setIdentifier(e.target.value)}
-                            className="h-10"
-                            required
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <Label>Password</Label>
-                            <button 
-                                type="button" 
-                                onClick={() => setView('forgot-password')} 
-                                className="text-xs text-gray-500 hover:text-black transition-colors"
-                            >
-                                Forgot password?
-                            </button>
-                        </div>
-                        <Input 
-                            type="password" 
-                            placeholder="••••••••" 
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="h-10"
-                            required
-                        />
-                    </div>
-                    <Button className="w-full h-10 font-semibold mt-4" disabled={isLoading}>
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log In'}
-                    </Button>
-                </form>
-            ) : view === 'forgot-password' ? (
-                /* FORGOT PASSWORD FORM */
-                <form onSubmit={handleResetPassword} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input 
-                            type="email"
-                            placeholder="name@example.com" 
-                            value={identifier}
-                            onChange={e => setIdentifier(e.target.value)}
-                            className="h-10"
-                            required
-                        />
-                        <p className="text-xs text-gray-500 pt-1">
-                            We'll send you a link to reset your password.
-                        </p>
-                    </div>
-                    <Button className="w-full h-10 font-semibold mt-4" disabled={isLoading}>
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Reset Link'}
-                    </Button>
-                    <div className="pt-2">
-                        <Button 
-                            type="button" 
-                            variant="ghost" 
-                            className="w-full text-sm text-gray-500 hover:text-black"
-                            onClick={() => setView('login')}
-                        >
-                            Back to Login
-                        </Button>
-                    </div>
-                </form>
-            ) : (
-                /* SIGNUP FORM */
-                <form onSubmit={handleSignup} className="space-y-4">
-                    <div className="space-y-2">
-                        <Label>Username</Label>
-                        <Input 
-                            placeholder="Pick a unique username" 
-                            value={username}
-                            onChange={e => setUsername(e.target.value)}
-                            className="h-10"
-                            required
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Email</Label>
-                        <Input 
-                            type="email"
-                            placeholder="name@example.com" 
-                            value={email}
-                            onChange={e => setEmail(e.target.value)}
-                            className="h-10"
-                            required
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Password</Label>
-                        <Input 
-                            type="password" 
-                            placeholder="Create a password" 
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="h-10"
-                            required
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Confirm Password</Label>
-                        <Input 
-                            type="password" 
-                            placeholder="Confirm your password" 
-                            value={confirmPassword}
-                            onChange={e => setConfirmPassword(e.target.value)}
-                            className="h-10"
-                            required
-                        />
-                    </div>
-                    <Button className="w-full h-10 font-semibold mt-4" disabled={isLoading}>
-                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Account'}
-                    </Button>
-                </form>
+        <div className="p-8 pt-0">
+          <Button 
+            onClick={handleGoogleLogin} 
+            className="w-full h-11 font-semibold flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-300 hover:bg-gray-50" 
+            disabled={isLoading}
+          >
+            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+              <svg viewBox="0 0 24 24" className="w-5 h-5 mx-2" aria-hidden="true" fill="currentColor">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                <path d="M1 1h22v22H1z" fill="none"/>
+              </svg>
             )}
+            Sign in with Google
+          </Button>
         </div>
       </div>
     </div>

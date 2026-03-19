@@ -17,7 +17,7 @@ const KEYBOARD_ROWS = [
 
 export default function WordleGame({ config, gameId }: { config: any, gameId: string }) {
   // Use Global Context for Status & Timer
-  const { gameStatus, setGameStatus, seconds, user } = useGame()
+  const { gameStatus, setGameStatus, seconds, setSeconds, user } = useGame()
   
   const [guesses, setGuesses] = useState<string[]>([])
   const [currentGuess, setCurrentGuess] = useState('')
@@ -25,6 +25,39 @@ export default function WordleGame({ config, gameId }: { config: any, gameId: st
   const [showModal, setShowModal] = useState(false)
   
   const target = config.targetWord
+  const [isRestored, setIsRestored] = useState(false)
+  
+  // --- State Persistence ---
+  useEffect(() => {
+    const savedState = sessionStorage.getItem(`nyt_wordle_${gameId}`)
+    if (savedState) {
+        try {
+            const parsed = JSON.parse(savedState)
+            if (parsed.target === target) {
+                setGuesses(parsed.guesses || [])
+                setSeconds(parsed.seconds || 0)
+                if (parsed.gameStatus) setGameStatus(parsed.gameStatus)
+                // If game was over, show the modal after a short delay so user can see they won
+                if (parsed.gameStatus && parsed.gameStatus !== 'playing') {
+                    setTimeout(() => setShowModal(true), 800)
+                }
+            }
+        } catch(e) { console.error('Error parsing saved game state', e) }
+    }
+    setIsRestored(true)
+  }, [gameId, target, setSeconds, setGameStatus])
+
+  useEffect(() => {
+    if (!isRestored) return
+    if (guesses.length > 0 || gameStatus !== 'playing') {
+       sessionStorage.setItem(`nyt_wordle_${gameId}`, JSON.stringify({
+           guesses,
+           seconds,
+           gameStatus,
+           target
+       }))
+    }
+  }, [guesses, seconds, gameStatus, gameId, target, isRestored])
   const supabase = createClient()
 
   // --- Leaderboard Logic ---
