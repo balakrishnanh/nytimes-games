@@ -17,14 +17,21 @@ export default async function PlayGame({ params }: { params: Promise<{ id: strin
   // Track this game as "played" if the logged-in user doesn't own it
   const { data: { user } } = await supabase.auth.getUser()
   if (user && user.id !== game.user_id) {
+    // 1. Maintain dashboard 'Played Games' list
     await supabase.from('played_games').upsert(
       { user_id: user.id, game_id: game.id },
       { onConflict: 'user_id,game_id' }
     )
+    
+    // 2. Log an individual play for metrics (Total Plays & Charts)
+    await supabase.from('game_plays').insert({
+      user_id: user.id,
+      game_id: game.id
+    })
   }
 
   return (
-    <GameShell title={game.title} gameType={game.type}>
+    <GameShell title={game.title} gameType={game.type} gameId={game.id}>
       
       {game.type === 'wordle' && (
           <WordleGame config={game.config} gameId={game.id} />

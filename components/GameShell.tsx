@@ -5,15 +5,18 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { GameProvider, useGame } from '../context/GameContext'
 import { ScoreSyncer } from '@/components/ScoreSyncer'
+import { LeaderboardButton } from '@/components/LeaderboardButton'
+import { ShareButton } from '@/components/ShareButton'
 
 interface GameShellProps {
   title: string
   gameType: string
+  gameId: string
   children: React.ReactNode
 }
 
 // 1. Inner Component that consumes the Context
-function GameShellContent({ title, gameType, children }: GameShellProps) {
+function GameShellContent({ title, gameType, gameId, children }: GameShellProps) {
   const { seconds, isPaused, setIsPaused, gameStatus } = useGame()
   const backLink = `/dashboard?tab=${gameType}`
 
@@ -41,14 +44,21 @@ function GameShellContent({ title, gameType, children }: GameShellProps) {
             <span className="font-mono font-medium text-lg w-14 text-center">
                 {formatTime(seconds)}
             </span>
-            <button 
-                onClick={() => setIsPaused(!isPaused)}
-                // Disable pause if game is over
-                disabled={gameStatus !== 'playing'}
-                className="hover:bg-white rounded-full p-1 transition-colors disabled:opacity-50"
-            >
-                {isPaused ? <Play className="h-5 w-5 fill-current" /> : <Pause className="h-5 w-5 fill-current" />}
-            </button>
+            {gameStatus === 'playing' ? (
+                <button 
+                    onClick={() => setIsPaused(!isPaused)}
+                    // Disable pause if game is over
+                    disabled={gameStatus !== 'playing'}
+                    className="hover:bg-white rounded-full p-1 transition-colors disabled:opacity-50"
+                >
+                    {isPaused ? <Play className="h-5 w-5 fill-current" /> : <Pause className="h-5 w-5 fill-current" />}
+                </button>
+            ) : (
+                <div className="flex items-center gap-1.5 border-l-2 border-gray-200 pl-3">
+                    <LeaderboardButton gameId={gameId} variant="ghost" className="h-8 px-2 bg-white" />
+                    <ShareButton gameId={gameId} variant="ghost" className="h-8 px-2 bg-white" />
+                </div>
+            )}
         </div>
       </div>
 

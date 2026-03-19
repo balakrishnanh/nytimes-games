@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import GameCardActions from '@/components/GameCardActions'
 import PlayedGameCardActions from '@/components/PlayedGameCardActions'
 import { ShareButton } from '@/components/ShareButton'
+import { LeaderboardButton } from '@/components/LeaderboardButton'
+import { MetricsButton } from '@/components/MetricsButton'
 import { Clock, User } from 'lucide-react'
 
 // Maps game type slug → human-readable label & colour
@@ -112,23 +114,32 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                   </CardDescription>
                 </CardHeader>
                 
-                <CardFooter className="mt-auto flex justify-between items-center gap-2 pt-4 border-t bg-gray-50/50">
+                <CardFooter className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t bg-gray-50/50">
                   {/* Play Button */}
-                  <Link href={`/play/${game.id}`} className="flex-1">
+                  <Link href={`/play/${game.id}`} className="flex-1 min-w-[80px]">
                     <Button variant="secondary" className="w-full shadow-sm hover:bg-white border font-medium">
                       Play
                     </Button>
                   </Link>
 
-                  {/* Share Button */}
-                  <ShareButton gameId={game.id} variant="outline" className="bg-white" />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Leaderboard and Share */}
+                    <div className="flex items-center gap-1.5 hidden sm:flex">
+                      <MetricsButton gameId={game.id} variant="outline" className="bg-white" />
+                      <ShareButton gameId={game.id} variant="outline" className="bg-white" />
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:hidden">
+                      <MetricsButton gameId={game.id} variant="outline" className="bg-white px-2" />
+                      <ShareButton gameId={game.id} variant="outline" className="bg-white px-2" />
+                    </div>
 
-                  {/* Edit / Delete Actions */}
-                  <GameCardActions 
-                    gameId={game.id} 
-                    gameTitle={game.title} 
-                    gameType={game.type} 
-                  />
+                    {/* Edit / Delete Actions */}
+                    <GameCardActions 
+                      gameId={game.id} 
+                      gameTitle={game.title} 
+                      gameType={game.type} 
+                    />
+                  </div>
                 </CardFooter>
               </Card>
             ))}
@@ -190,22 +201,31 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                     </div>
                   </CardHeader>
 
-                  <CardFooter className="mt-auto flex justify-between items-center gap-2 pt-4 border-t bg-gray-50/50">
+                  <CardFooter className="mt-auto flex flex-wrap items-center gap-2 pt-4 border-t bg-gray-50/50">
                     {/* Play */}
-                    <Link href={`/play/${game.id}`} className="flex-1">
+                    <Link href={`/play/${game.id}`} className="flex-1 min-w-[80px]">
                       <Button variant="secondary" className="w-full shadow-sm hover:bg-white border font-medium">
                         Play
                       </Button>
                     </Link>
 
-                    {/* Share */}
-                    <ShareButton gameId={game.id} variant="outline" className="bg-white" />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Leaderboard and Share */}
+                      <div className="flex items-center gap-1.5 hidden sm:flex">
+                        <LeaderboardButton gameId={game.id} variant="outline" className="bg-white" />
+                        <ShareButton gameId={game.id} variant="outline" className="bg-white" />
+                      </div>
+                      <div className="flex items-center gap-1.5 sm:hidden">
+                        <LeaderboardButton gameId={game.id} variant="outline" className="bg-white px-2" />
+                        <ShareButton gameId={game.id} variant="outline" className="bg-white px-2" />
+                      </div>
 
-                    {/* Remove from list */}
-                    <PlayedGameCardActions
-                      playedGameId={game.playedGameRowId}
-                      gameTitle={game.title}
-                    />
+                      {/* Remove from list */}
+                      <PlayedGameCardActions
+                        playedGameId={game.playedGameRowId}
+                        gameTitle={game.title}
+                      />
+                    </div>
                   </CardFooter>
                 </Card>
               )

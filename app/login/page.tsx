@@ -10,13 +10,14 @@ import { ArrowLeft, CheckCircle2, Loader2 } from 'lucide-react'
 
 function LoginPageInner() {
   // Mode Toggle
-  const [view, setView] = useState<'login' | 'signup'>('login')
+  const [view, setView] = useState<'login' | 'signup' | 'forgot-password'>('login')
   
   // Form Fields
   const [identifier, setIdentifier] = useState('') // Used for Login (Email OR Username)
   const [email, setEmail] = useState('')           // Used for Signup
   const [username, setUsername] = useState('')     // Used for Signup
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   
   const [isLoading, setIsLoading] = useState(false)
   const [signupSuccess, setSignupSuccess] = useState(false)
@@ -66,6 +67,11 @@ function LoginPageInner() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (password !== confirmPassword) {
+      return toast.error('Passwords do not match')
+    }
+
     setIsLoading(true)
 
     // 1. Validate Username Uniqueness manually first
@@ -86,7 +92,8 @@ function LoginPageInner() {
         password,
         options: {
             // This data is passed to the SQL Trigger we created
-            data: { username: username.trim() } 
+            data: { username: username.trim() },
+            emailRedirectTo: 'https://nytimes-games.vercel.app/'
         }
     })
     
@@ -96,6 +103,26 @@ function LoginPageInner() {
         toast.error(error.message)
     } else {
         setSignupSuccess(true)
+    }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    // Assume user entered their email into the identifier field
+    const targetEmail = identifier.trim() || email.trim()
+    if (!targetEmail) {
+      return toast.error('Please enter your email')
+    }
+    setIsLoading(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
+      redirectTo: 'https://nytimes-games.vercel.app/reset-password',
+    })
+    setIsLoading(false)
+    if (error) {
+      toast.error(error.message)
+    } else {
+        toast.success('Reset link sent to your email')
+        setView('login')
     }
   }
 
@@ -127,7 +154,7 @@ function LoginPageInner() {
         <div className="p-8 pb-6 text-center">
             <h1 className="text-3xl font-serif font-bold text-black">NYT Maker</h1>
             <p className="text-gray-500 text-sm mt-2">
-                {view === 'login' ? 'Welcome back, creator.' : 'Join to start building games.'}
+                {view === 'login' ? 'Welcome back, creator.' : view === 'signup' ? 'Join to start building games.' : 'Reset your password.'}
             </p>
         </div>
 
@@ -163,7 +190,16 @@ function LoginPageInner() {
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label>Password</Label>
+                        <div className="flex items-center justify-between">
+                            <Label>Password</Label>
+                            <button 
+                                type="button" 
+                                onClick={() => setView('forgot-password')} 
+                                className="text-xs text-gray-500 hover:text-black transition-colors"
+                            >
+                                Forgot password?
+                            </button>
+                        </div>
                         <Input 
                             type="password" 
                             placeholder="••••••••" 
@@ -176,6 +212,37 @@ function LoginPageInner() {
                     <Button className="w-full h-10 font-semibold mt-4" disabled={isLoading}>
                         {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log In'}
                     </Button>
+                </form>
+            ) : view === 'forgot-password' ? (
+                /* FORGOT PASSWORD FORM */
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Email</Label>
+                        <Input 
+                            type="email"
+                            placeholder="name@example.com" 
+                            value={identifier}
+                            onChange={e => setIdentifier(e.target.value)}
+                            className="h-10"
+                            required
+                        />
+                        <p className="text-xs text-gray-500 pt-1">
+                            We'll send you a link to reset your password.
+                        </p>
+                    </div>
+                    <Button className="w-full h-10 font-semibold mt-4" disabled={isLoading}>
+                        {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send Reset Link'}
+                    </Button>
+                    <div className="pt-2">
+                        <Button 
+                            type="button" 
+                            variant="ghost" 
+                            className="w-full text-sm text-gray-500 hover:text-black"
+                            onClick={() => setView('login')}
+                        >
+                            Back to Login
+                        </Button>
+                    </div>
                 </form>
             ) : (
                 /* SIGNUP FORM */
@@ -208,6 +275,17 @@ function LoginPageInner() {
                             placeholder="Create a password" 
                             value={password}
                             onChange={e => setPassword(e.target.value)}
+                            className="h-10"
+                            required
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Confirm Password</Label>
+                        <Input 
+                            type="password" 
+                            placeholder="Confirm your password" 
+                            value={confirmPassword}
+                            onChange={e => setConfirmPassword(e.target.value)}
                             className="h-10"
                             required
                         />
